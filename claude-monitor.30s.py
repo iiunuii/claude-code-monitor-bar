@@ -359,7 +359,8 @@ def main() -> None:
         print("---")
 
     if burn_rate:
-        tpm = burn_rate.get("tokensPerMinute", 0)
+        # Recalculate tok/min from input+output only (library includes cache tokens)
+        tpm = tokens / duration if duration > 0 else 0
         cph = burn_rate.get("costPerHour", 0)
         cost_per_min = cph / 60 if cph else 0
         print(f"Burn  {tpm:.0f} tok/min  {fmt_cost(cost_per_min)}/min | color={COLOR_LABEL} font={MONO_FONT} size={SMALL_SIZE}")
@@ -393,7 +394,7 @@ def main() -> None:
         )
         for model_name, stats in sorted_models:
             if isinstance(stats, dict):
-                model_tokens = stats.get("totalTokens", 0)
+                model_tokens = stats.get("input_tokens", 0) + stats.get("output_tokens", 0)
                 pct = model_tokens / tokens * 100 if tokens > 0 else 0
                 short_name = model_name
                 if len(short_name) > 22:
