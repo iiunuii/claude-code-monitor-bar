@@ -1,55 +1,47 @@
 # Claude Code Monitor Bar
 
-A clean, minimal macOS menu bar widget that shows your Claude AI token usage at a glance. Built for [SwiftBar](https://github.com/swiftbar/SwiftBar).
+A clean, minimal macOS menu bar widget that shows your Claude Code usage for every account profile at a glance. Built for [SwiftBar](https://github.com/swiftbar/SwiftBar).
 
 ```
-TKN 72%  CST $3.45
+R $3.45 24%  P 0%
 ```
 
 ## Features
 
-- **Live metrics** in your menu bar — token %, cost, messages
-- **Bar graph dropdown** with detailed session stats
-- **Color-coded** usage levels (green / yellow / orange / red)
-- **Burn rate & ETA** — see when tokens will run out
-- **Model distribution** breakdown per session
-- **Configurable** — pick your plan, choose which metrics to show
+- **Multiple profiles** — the default `~/.claude` plus any `CLAUDE_CONFIG_DIR` profile (e.g. `~/.claude-personal`), one row per account
+- **Real limit %** — the 5-hour and weekly utilisation Anthropic reports for the account, not an estimate from a guessed token cap
+- **Session stats** — tokens, API-equivalent cost, burn rate, model mix from local logs
+- **Color-coded** usage levels (green / yellow / orange / red); gray when the limit data is stale
+- **Configurable** — choose which metrics show in the menu bar
 - **Zero-daemon** — SwiftBar handles all scheduling
 
 ### Menu bar states
 
 | Display | Meaning |
 |---------|---------|
-| `TKN 72%  CST $3.45` | Active session |
-| `CCM  Idle` | No active session |
+| `R $3.45 24%  P 0%` | One segment per profile: first letter of its label, then the enabled metrics |
+| `P –` | Profile with no limit data and no active session |
 | `CCM  —` | Error (click for details) |
 
 ### Dropdown preview
 
 ```
-Plan: Pro
-Display
+Rentspree  you@company.com
+  5h   ███░░░░░░░░░░░   24%  resets 11:59 AM
+  Week ██░░░░░░░░░░░░   18%  resets Fri 1:59 AM
+  Session  1h 41m  223 msg
+  Tokens   267,502
+  Cost     ≈$56.65 API-equivalent
+  Burn     2624 tok/min  $0.56/min
+  Models                                  >
 ───────────────────
-Tokens
-  ████████████░░░░  72.3%
-  13,248 / 19,000
-Cost
-  ███░░░░░░░░░░░░░  19.2%
-  $3.45 / $18.00
-Messages
-  █████░░░░░░░░░░░  34.8%
-  87 / 250
-Duration
-  1h 23m
+Personal  you@gmail.com
+  5h   ░░░░░░░░░░░░░░    0%
+  Week ███░░░░░░░░░░░   23%  resets Thu 3:00 PM
+  limits as of 19h 56m ago
+  Idle — no active session
 ───────────────────
-Burn  42 tok/min  $0.02/min
-ETA   2h 34m left -> 3:15 PM
-Reset 5:45 PM
-───────────────────
-Models
-  claude-sonnet-4-5          85%
-  claude-opus-4              15%
-───────────────────
+Display                                   >
 Open Terminal Monitor
 Refresh
 ```
@@ -114,42 +106,39 @@ chmod +x ~/swiftbar-plugins/claude-monitor.30s.py
 
 The widget appears in your menu bar automatically.
 
-### Step 4 — Configure your plan (optional)
+### Step 4 — Limit % data (optional)
 
-The widget defaults to the **Pro** plan. To change it, use either method:
+The 5h and weekly percentages come from the usage cache the [oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode) HUD writes to `<profile>/plugins/oh-my-claudecode/.usage-cache-anthropic.json` while a Claude Code session runs in that profile. Without it, the profile still shows tokens and cost, just no %. Data older than 10 minutes is shown in gray with its age; a window whose reset time has passed shows 0%.
 
-**Environment variable** — add to `~/.zshrc` or `~/.bashrc`:
+### Step 5 — Profiles (optional)
 
-```bash
-export CCM_PLAN=pro  # pro, max5, max20, custom
-```
-
-**Config file** — create `~/.claude-monitor/widget-config.json`:
+By default the widget shows `~/.claude` and every `~/.claude-*` directory that holds a logged-in Claude Code profile, once per account email. To pick profiles and labels yourself, edit `~/.claude-monitor/widget-config.json`:
 
 ```json
 {
-  "plan": "pro"
+  "profiles": [
+    {"dir": "~/.claude", "label": "Work"},
+    {"dir": "~/.claude-personal", "label": "Personal"}
+  ]
 }
 ```
-
-Or just click the **Plan** submenu in the dropdown to switch.
 
 ## Customization
 
 | Setting | How |
 |---------|-----|
 | **Refresh interval** | Rename the file: `claude-monitor.10s.py` (10s), `claude-monitor.1m.py` (1min) |
-| **Plan type** | `CCM_PLAN` env var, config file, or dropdown submenu |
-| **Display metrics** | Click **Display** in the dropdown to toggle TKN%, CST, MSG, etc. |
-| **Terminal monitor** | "Open Terminal Monitor" runs `ccm` — change in `_print_footer()` |
+| **Profiles** | `profiles` in the config file (see Step 5) |
+| **Display metrics** | Click **Display** in the dropdown to toggle 5h %, weekly %, cost, messages |
+| **Terminal monitor** | "Open Terminal Monitor" runs `ccm` — change in `print_footer()` |
 
 ## How It Works
 
 The plugin runs on a schedule set by the filename (default: every 30 seconds). It:
 
-1. Imports the `claude-monitor` Python library
-2. Calls `analyze_usage()` to read JSONL logs from `~/.claude/projects/`
-3. Finds the active 5-hour session block
+1. Finds each Claude Code profile and its account email
+2. Reads the account's real 5h / weekly limit % from the oh-my-claudecode usage cache
+3. Calls `claude-monitor`'s `analyze_usage(data_path=<profile>/projects)` for the active session's tokens, cost and models
 4. Formats metrics using the SwiftBar pipe-delimited protocol
 
 No daemon, no server — SwiftBar handles the scheduling.

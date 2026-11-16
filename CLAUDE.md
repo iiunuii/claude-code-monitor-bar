@@ -9,9 +9,10 @@ Claude Code Monitor Bar is a macOS menu bar widget (SwiftBar/xbar plugin) that d
 ## Architecture
 
 - **Single file**: `claude-monitor.30s.py` — the entire plugin
-- **Dependency**: `claude-monitor` Python package (provides `analyze_usage()` and `Plans`)
+- **Dependency**: `claude-monitor` Python package (provides `analyze_usage()`)
 - **Runtime**: Executed by SwiftBar every 30 seconds (configurable via filename)
-- **Config**: `~/.claude-monitor/widget-config.json` for plan and display preferences
+- **Config**: `~/.claude-monitor/widget-config.json` for display metrics and an optional `profiles` list
+- **Limit % source**: oh-my-claudecode HUD cache at `<profile>/plugins/oh-my-claudecode/.usage-cache-anthropic.json` (Anthropic's real 5h/weekly utilisation). claude-monitor's plan token caps are not used; they don't match real limits
 
 ## Key conventions
 
@@ -25,13 +26,13 @@ Claude Code Monitor Bar is a macOS menu bar widget (SwiftBar/xbar plugin) that d
 ## Code structure
 
 1. **Path setup** (`_setup_uv_tool_path`) — auto-detects `uv tool` installations
-2. **Constants** — colors, fonts, plans, display metrics
-3. **Helpers** — `fmt_number`, `fmt_cost`, `fmt_pct`, `fmt_duration`, `bar_graph`, etc.
-4. **Config** — `get_plan`, `set_plan`, `get_display`, `toggle_display`
-5. **Main** — fetches data via `analyze_usage()`, formats and prints output
-6. **Title** — `_format_title` builds the compact `TKN 72%  CST $3.45` label
-7. **Submenus** — `_print_plan_submenu`, `_print_display_submenu`
-8. **CLI args** — `--set-plan` and `--toggle-display` for SwiftBar callbacks
+2. **Constants** — colors, fonts, display metrics
+3. **Domain model** — `Profile`, `LimitWindow`, `Limits`, `Session`, `ProfileUsage` dataclasses
+4. **Config** — `load_config`, `get_display`, `toggle_display`
+5. **Profiles** — `discover_profiles` (default `~/.claude` + `~/.claude-*`, deduped by account email)
+6. **Data sources** — `read_limits` (OMC cache), `read_session` (`analyze_usage(data_path=...)`, models grouped by raw entry id)
+7. **Rendering** — `print_title` (`R $3.45 24%  P 0%`), `print_profile`, `print_display_submenu`
+8. **CLI args** — `--toggle-display` for SwiftBar callbacks
 
 ## Testing
 
